@@ -1,7 +1,9 @@
+import hashlib
 import html
 import json
 import os
 import secrets
+import time
 import requests
 from flask import Flask, jsonify, request, redirect, session, url_for
 
@@ -37,7 +39,23 @@ PUBLIC = """<!doctype html><html lang='es'><head><meta charset='utf-8'><meta nam
 
 LOGIN = """<!doctype html><html lang='es'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><title>Admin · Streaming Factory</title><style>body{margin:0;background:#f7fafc;font-family:system-ui;color:#07111f;display:grid;place-items:center;min-height:100vh}.box{background:#07111f;color:#fff;padding:32px;border-radius:16px;width:min(420px,90vw);box-shadow:0 20px 50px #07111f33}input,button{width:100%;padding:13px;margin:8px 0;border-radius:8px;border:1px solid #38506b;box-sizing:border-box}input{background:#10243a;color:#fff}button{background:#09b9e8;border:0;font-weight:900;cursor:pointer}.error{color:#fb7185}.back{color:#9beafa}</style></head><body><form class='box' method='post'><h1>Panel privado</h1><p>Streaming Factory</p>{error}<input name='username' placeholder='Usuario' required><input name='password' type='password' placeholder='Contraseña' required><button>Acceder</button><a class='back' href='/'>← Volver al catálogo</a></form></body></html>"""
 
-ADMIN = """<!doctype html><html lang='es'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><title>Panel · Streaming Factory</title><style>body{margin:0;background:#f7fafc;font-family:system-ui;color:#07111f}.top{background:#07111f;color:#fff;padding:20px 5%;display:flex;justify-content:space-between}.top a{color:#9beafa}.wrap{max-width:1100px;margin:auto;padding:28px}.panel{background:#fff;border:1px solid #d9e3ec;border-radius:14px;padding:22px;margin-bottom:22px}.form{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}.form input,.form select,.form button{padding:12px;border:1px solid #cbd5e1;border-radius:7px;box-sizing:border-box}.form button{background:#09b9e8;border:0;font-weight:900;cursor:pointer}.full{grid-column:1/-1}.table{width:100%;border-collapse:collapse}.table td,.table th{padding:10px;text-align:left;border-bottom:1px solid #e2e8f0}.danger{background:#fee2e2;border:0;border-radius:6px;padding:7px;color:#991b1b;cursor:pointer}@media(max-width:650px){.form{grid-template-columns:1fr}.full{grid-column:auto}}</style></head><body><header class='top'><b>STREAMING FACTORY · ADMIN</b><span><a href='/'>Ver sitio</a> · <a href='/admin/logout'>Salir</a></span></header><main class='wrap'><h1>Gestión de productos</h1><section class='panel'><h2>Nuevo producto</h2><form class='form' method='post' action='/admin/products'><input name='title' placeholder='Título' required><input name='category' placeholder='Categoría' required><input name='description' placeholder='Descripción' required><input name='account_type' placeholder='Tipo de cuenta' required><input name='duration' placeholder='Duración' required><input name='mode' placeholder='Modalidad' required><input name='price' type='number' step='0.01' placeholder='Precio USD' required><input name='stock' type='number' placeholder='Stock' required><input class='full' name='image_url' placeholder='URL de imagen en Cloudinary (opcional)'><button class='full'>Guardar producto</button></form></section><section class='panel'><h2>Productos actuales</h2><table class='table'><tr><th>Producto</th><th>Categoría</th><th>Precio</th><th>Stock</th><th></th></tr>PRODUCT_ROWS</table></section></main></body></html>"""
+ADMIN = """<!doctype html><html lang='es'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><title>Panel · Streaming Factory</title><style>body{margin:0;background:#f7fafc;font-family:system-ui;color:#07111f}.top{background:#07111f;color:#fff;padding:20px 5%;display:flex;justify-content:space-between}.top a{color:#9beafa}.wrap{max-width:1100px;margin:auto;padding:28px}.panel{background:#fff;border:1px solid #d9e3ec;border-radius:14px;padding:22px;margin-bottom:22px}.form{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}.form input,.form select,.form button{padding:12px;border:1px solid #cbd5e1;border-radius:7px;box-sizing:border-box}.form button{background:#09b9e8;border:0;font-weight:900;cursor:pointer}.full{grid-column:1/-1}.table{width:100%;border-collapse:collapse}.table td,.table th{padding:10px;text-align:left;border-bottom:1px solid #e2e8f0}.danger{background:#fee2e2;border:0;border-radius:6px;padding:7px;color:#991b1b;cursor:pointer}@media(max-width:650px){.form{grid-template-columns:1fr}.full{grid-column:auto}}</style></head><body><header class='top'><b>STREAMING FACTORY · ADMIN</b><span><a href='/'>Ver sitio</a> · <a href='/admin/logout'>Salir</a></span></header><main class='wrap'><h1>Gestión de productos</h1><section class='panel'><h2>Nuevo producto</h2><form class='form' method='post' action='/admin/products'><input name='title' placeholder='Título' required><input name='category' placeholder='Categoría' required><input name='description' placeholder='Descripción' required><input name='account_type' placeholder='Tipo de cuenta' required><input name='duration' placeholder='Duración' required><input name='mode' placeholder='Modalidad' required><input name='price' type='number' step='0.01' placeholder='Precio USD' required><input name='stock' type='number' placeholder='Stock' required><label class='full'>Imagen del producto<input name='image' type='file' accept='image/png,image/jpeg,image/webp'></label><button class='full'>Guardar producto</button></form></section><section class='panel'><h2>Productos actuales</h2><table class='table'><tr><th>Producto</th><th>Categoría</th><th>Precio</th><th>Stock</th><th></th></tr>PRODUCT_ROWS</table></section></main></body></html>"""
+
+def cloudinary_upload(file):
+    cloud = os.getenv('CLOUDINARY_CLOUD_NAME')
+    api_key = os.getenv('CLOUDINARY_API_KEY')
+    api_secret = os.getenv('CLOUDINARY_API_SECRET')
+    if not cloud or not api_key or not api_secret or not file:
+        return None
+    timestamp = int(time.time())
+    folder = 'streaming-factory/products'
+    signature_base = 'folder=' + folder + '&timestamp=' + str(timestamp) + api_secret
+    signature = hashlib.sha1(signature_base.encode()).hexdigest()
+    try:
+        response = requests.post('https://api.cloudinary.com/v1_1/' + cloud + '/image/upload', data={'api_key':api_key,'timestamp':timestamp,'folder':folder,'signature':signature}, files={'file':(file.filename,file.stream,file.mimetype)}, timeout=45)
+        return response.json().get('secure_url') if response.ok else None
+    except (requests.RequestException, ValueError):
+        return None
 
 @app.get('/')
 def home():
@@ -64,8 +82,10 @@ def admin_dashboard():
 @app.post('/admin/products')
 def create_product():
     if not logged_in(): return redirect('/admin')
-    data = {k:request.form.get(k,'') for k in ['title','description','category','account_type','duration','mode','image_url']}
+    data = {k:request.form.get(k,'') for k in ['title','description','category','account_type','duration','mode']}
     data.update({'price':float(request.form.get('price',0)),'stock':int(request.form.get('stock',0))})
+    image_url = cloudinary_upload(request.files.get('image'))
+    if image_url: data['image_url'] = image_url
     supabase('POST','/rest/v1/products',data,admin=True)
     return redirect('/admin/dashboard')
 
@@ -82,6 +102,7 @@ def admin_logout():
 @app.get('/api/health')
 def health():
     configured = bool(os.getenv('SUPABASE_URL') and (os.getenv('SUPABASE_PUBLISHABLE_KEY') or os.getenv('SUPABASE_ANON_KEY')))
-    return jsonify({'status':'ok','supabase':configured}),200
+    result = supabase('GET','/rest/v1/site_settings?select=id&limit=1') if configured else None
+    return jsonify({'status':'ok','supabase':result is not None}),200
 
 if __name__ == '__main__': app.run(host='0.0.0.0',port=int(os.getenv('PORT',5000)))
