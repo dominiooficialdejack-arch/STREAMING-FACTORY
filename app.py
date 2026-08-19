@@ -76,44 +76,21 @@ def admin_login():
 @app.get('/admin/dashboard')
 def admin_dashboard():
     if not logged_in(): return redirect('/admin')
-    rows = supabase('GET','/rest/v1/products?order=created_at.desc') or []
+    rows = supabase('GET', '/rest/v1/products?order=created_at.desc') or []
     def field(item, name): return html.escape(str(item.get(name, '')), quote=True)
     def row(item):
         product_id = str(item.get('id', ''))
-        edit = '<details><summary>Editar</summary><form class="edit-form" method="post" enctype="multipart/form-data" action="/admin/products/edit/'+product_id+'"><input name="title" value="'+field(item,'title')+'" required><input name="category" value="'+field(item,'category')+'" required><input name="description" value="'+field(item,'description')+'" required><input name="account_type" value="'+field(item,'account_type')+'" required><input name="duration" value="'+field(item,'duration')+'" required><input name="mode" value="'+field(item,'mode')+'" required><input name="price" type="number" step="0.01" value="'+field(item,'price')+'" required><input name="stock" type="number" value="'+field(item,'stock')+'" required><input name="image" type="file" accept="image/png,image/jpeg,image/webp"><button>Guardar cambios</button></form></details>'
-        remove = '<form method="post" action="/admin/products/delete/'+product_id+'"><button class="danger">Eliminar</button></form>'
-        return '<tr><td>'+field(item,'title')+'</td><td>'+field(item,'category')+'</td><td>@app.get('/admin/logout')
-def admin_logout():
-    session.clear(); return redirect('/admin')
-
-@app.get('/api/health')
-def health():
-    configured = bool(os.getenv('SUPABASE_URL') and (os.getenv('SUPABASE_PUBLISHABLE_KEY') or os.getenv('SUPABASE_ANON_KEY')))
-    result = supabase('GET','/rest/v1/site_settings?select=id&limit=1') if configured else None
-    return jsonify({'status':'ok','supabase':result is not None}),200
-
-def keepalive_loop():
-    url = os.getenv('PUBLIC_APP_URL', 'https://streaming-factory.onrender.com').rstrip('/') + '/api/health'
-    while True:
-        try:
-            requests.get(url, timeout=45)
-        except requests.RequestException:
-            pass
-        time.sleep(840)
-
-if os.getenv('ENABLE_KEEPALIVE', 'true').lower() == 'true':
-    threading.Thread(target=keepalive_loop, daemon=True).start()
-
-if __name__ == '__main__': app.run(host='0.0.0.0',port=int(os.getenv('PORT',5000)))
-+field(item,'price')+'</td><td>'+field(item,'stock')+'</td><td>'+edit+remove+'</td></tr>'
+        edit = '<details><summary>Editar</summary><form class="edit-form" method="post" enctype="multipart/form-data" action="/admin/products/edit/' + product_id + '"><input name="title" value="' + field(item, 'title') + '" required><input name="category" value="' + field(item, 'category') + '" required><input name="description" value="' + field(item, 'description') + '" required><input name="account_type" value="' + field(item, 'account_type') + '" required><input name="duration" value="' + field(item, 'duration') + '" required><input name="mode" value="' + field(item, 'mode') + '" required><input name="price" type="number" step="0.01" value="' + field(item, 'price') + '" required><input name="stock" type="number" value="' + field(item, 'stock') + '" required><input name="image" type="file" accept="image/png,image/jpeg,image/webp"><button>Guardar cambios</button></form></details>'
+        remove = '<form method="post" action="/admin/products/delete/' + product_id + '"><button class="danger">Eliminar</button></form>'
+        return '<tr><td>' + field(item, 'title') + '</td><td>' + field(item, 'category') + '</td><td>USD ' + field(item, 'price') + '</td><td>' + field(item, 'stock') + '</td><td>' + edit + remove + '</td></tr>'
     table = ''.join(row(item) for item in rows)
     notice = session.pop('notice', '')
-    page = ADMIN.replace('PRODUCT_ROWS',table or '<tr><td colspan="5">No hay productos en Supabase.</td></tr>')
-    return page.replace('<h1>Gestión de productos</h1>', '<h1>Gestión de productos</h1><p>'+html.escape(notice)+'</p>')
+    page = ADMIN.replace('PRODUCT_ROWS', table or '<tr><td colspan="5">No hay productos en Supabase.</td></tr>')
+    return page.replace('<h1>Gestión de productos</h1>', '<h1>Gestión de productos</h1><p>' + html.escape(notice) + '</p>')
 
 def product_data():
-    data = {k:request.form.get(k,'') for k in ['title','description','category','account_type','duration','mode']}
-    data.update({'price':float(request.form.get('price',0)),'stock':int(request.form.get('stock',0))})
+    data = {k: request.form.get(k, '') for k in ['title', 'description', 'category', 'account_type', 'duration', 'mode']}
+    data.update({'price': float(request.form.get('price', 0)), 'stock': int(request.form.get('stock', 0))})
     image_url = cloudinary_upload(request.files.get('image'))
     if image_url: data['image_url'] = image_url
     return data
@@ -121,21 +98,21 @@ def product_data():
 @app.post('/admin/products')
 def create_product():
     if not logged_in(): return redirect('/admin')
-    saved = supabase('POST','/rest/v1/products',product_data(),admin=True)
+    saved = supabase('POST', '/rest/v1/products', product_data(), admin=True)
     session['notice'] = 'Producto guardado correctamente.' if saved is not None else 'No se pudo guardar. Revisa las claves de Supabase y Cloudinary.'
     return redirect('/admin/dashboard')
 
 @app.post('/admin/products/edit/<product_id>')
 def edit_product(product_id):
     if not logged_in(): return redirect('/admin')
-    saved = supabase('PATCH','/rest/v1/products?id=eq.'+product_id,product_data(),admin=True)
+    saved = supabase('PATCH', '/rest/v1/products?id=eq.' + product_id, product_data(), admin=True)
     session['notice'] = 'Producto actualizado.' if saved is not None else 'No se pudo actualizar el producto.'
     return redirect('/admin/dashboard')
 
 @app.post('/admin/products/delete/<product_id>')
 def delete_product(product_id):
     if not logged_in(): return redirect('/admin')
-    removed = supabase('DELETE','/rest/v1/products?id=eq.'+product_id,admin=True)
+    removed = supabase('DELETE', '/rest/v1/products?id=eq.' + product_id, admin=True)
     session['notice'] = 'Producto eliminado.' if removed is not None else 'No se pudo eliminar el producto.'
     return redirect('/admin/dashboard')
 
