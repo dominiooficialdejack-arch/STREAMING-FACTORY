@@ -40,7 +40,7 @@ PUBLIC = """<!doctype html><html lang='es'><head><meta charset='utf-8'><meta nam
 
 LOGIN = """<!doctype html><html lang='es'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><title>Admin · Streaming Factory</title><style>body{margin:0;background:#f7fafc;font-family:system-ui;color:#07111f;display:grid;place-items:center;min-height:100vh}.box{background:#07111f;color:#fff;padding:32px;border-radius:16px;width:min(420px,90vw);box-shadow:0 20px 50px #07111f33}input,button{width:100%;padding:13px;margin:8px 0;border-radius:8px;border:1px solid #38506b;box-sizing:border-box}input{background:#10243a;color:#fff}button{background:#09b9e8;border:0;font-weight:900;cursor:pointer}.error{color:#fb7185}.back{color:#9beafa}</style></head><body><form class='box' method='post'><h1>Panel privado</h1><p>Streaming Factory</p>{error}<input name='username' placeholder='Usuario' required><input name='password' type='password' placeholder='Contraseña' required><button>Acceder</button><a class='back' href='/'>← Volver al catálogo</a></form></body></html>"""
 
-ADMIN = """<!doctype html><html lang='es'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><title>Panel · Streaming Factory</title><style>body{margin:0;background:#f7fafc;font-family:system-ui;color:#07111f}.top{background:#07111f;color:#fff;padding:20px 5%;display:flex;justify-content:space-between}.top a{color:#9beafa}.wrap{max-width:1100px;margin:auto;padding:28px}.panel{background:#fff;border:1px solid #d9e3ec;border-radius:14px;padding:22px;margin-bottom:22px}.form{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}.form input,.form select,.form button{padding:12px;border:1px solid #cbd5e1;border-radius:7px;box-sizing:border-box}.form button{background:#09b9e8;border:0;font-weight:900;cursor:pointer}.full{grid-column:1/-1}.table{width:100%;border-collapse:collapse}.table td,.table th{padding:10px;text-align:left;border-bottom:1px solid #e2e8f0}.danger{background:#fee2e2;border:0;border-radius:6px;padding:7px;color:#991b1b;cursor:pointer}@media(max-width:650px){.form{grid-template-columns:1fr}.full{grid-column:auto}}</style></head><body><header class='top'><b>STREAMING FACTORY · ADMIN</b><span><a href='/'>Ver sitio</a> · <a href='/admin/logout'>Salir</a></span></header><main class='wrap'><h1>Gestión de productos</h1><section class='panel'><h2>Nuevo producto</h2><form class='form' method='post' action='/admin/products' enctype='multipart/form-data'><input name='title' placeholder='Título' required><input name='category' placeholder='Categoría' required><input name='description' placeholder='Descripción' required><input name='account_type' placeholder='Tipo de cuenta' required><input name='duration' placeholder='Duración' required><input name='mode' placeholder='Modalidad' required><input name='price' type='number' step='0.01' placeholder='Precio USD' required><input name='stock' type='number' placeholder='Stock' required><label class='full'>Imagen del producto<input name='image' type='file' accept='image/png,image/jpeg,image/webp'></label><button class='full'>Guardar producto</button></form></section><section class='panel'><h2>Productos actuales</h2><table class='table'><tr><th>Producto</th><th>Categoría</th><th>Precio</th><th>Stock</th><th></th></tr>PRODUCT_ROWS</table></section></main></body></html>"""
+ADMIN = """<!doctype html><html lang='es'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><title>Panel · Streaming Factory</title><style>body{margin:0;background:#f7fafc;font-family:system-ui;color:#07111f}.top{background:#07111f;color:#fff;padding:20px 5%;display:flex;justify-content:space-between}.top a{color:#9beafa}.wrap{max-width:1100px;margin:auto;padding:28px}.panel{background:#fff;border:1px solid #d9e3ec;border-radius:14px;padding:22px;margin-bottom:22px}.form{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}.form input,.form select,.form button{padding:12px;border:1px solid #cbd5e1;border-radius:7px;box-sizing:border-box}.form button{background:#09b9e8;border:0;font-weight:900;cursor:pointer}.full{grid-column:1/-1}.table{width:100%;border-collapse:collapse}.table td,.table th{padding:10px;text-align:left;border-bottom:1px solid #e2e8f0}.danger{background:#fee2e2;border:0;border-radius:6px;padding:7px;color:#991b1b;cursor:pointer}@media(max-width:650px){.form{grid-template-columns:1fr}.full{grid-column:auto}}</style></head><body><header class='top'><b>STREAMING FACTORY · ADMIN</b><span><a href='/'>Ver sitio</a> · <a href='/admin/logout'>Salir</a></span></header><main class='wrap'><h1>Gestión de productos</h1><section class='panel'><h2>Nuevo producto</h2><form class='form' method='post' action='/admin/products' enctype='multipart/form-data'><input name='title' placeholder='Título' required><input name='category' placeholder='Categoría' required><input name='description' placeholder='Descripción' required><input name='account_type' placeholder='Tipo de cuenta' required><input name='duration' placeholder='Duración' required><input name='mode' placeholder='Modalidad' required><input name='price' type='number' step='0.01' placeholder='Precio USD' required><input name='stock' type='number' placeholder='Stock' required><label class='full'>Imagen del producto<input name='image' type='file' accept='image/png,image/jpeg,image/webp'></label><button class='full'>Guardar producto</button></form></section><section class='panel'><h2>Productos actuales</h2><table class='table'><tr><th>Producto</th><th>Categoría</th><th>Precio</th><th>Stock</th><th>Acciones</th></tr>PRODUCT_ROWS</table></section></main></body></html>"""
 
 def cloudinary_upload(file):
     cloud = os.getenv('CLOUDINARY_CLOUD_NAME')
@@ -76,24 +76,67 @@ def admin_login():
 @app.get('/admin/dashboard')
 def admin_dashboard():
     if not logged_in(): return redirect('/admin')
-    rows = supabase('GET','/rest/v1/products?order=created_at.desc',admin=True) or []
-    table = ''.join('<tr><td>'+html.escape(str(x.get('title','')))+' </td><td>'+html.escape(str(x.get('category','')))+' </td><td>$'+str(x.get('price',0))+'</td><td>'+str(x.get('stock',0))+'</td><td><form method="post" action="/admin/products/delete/'+str(x.get('id'))+'"><button class="danger">Eliminar</button></form></td></tr>' for x in rows)
-    return ADMIN.replace('PRODUCT_ROWS',table or '<tr><td colspan="5">No hay productos.</td></tr>')
+    rows = supabase('GET','/rest/v1/products?order=created_at.desc') or []
+    def field(item, name): return html.escape(str(item.get(name, '')), quote=True)
+    def row(item):
+        product_id = str(item.get('id', ''))
+        edit = '<details><summary>Editar</summary><form class="edit-form" method="post" enctype="multipart/form-data" action="/admin/products/edit/'+product_id+'"><input name="title" value="'+field(item,'title')+'" required><input name="category" value="'+field(item,'category')+'" required><input name="description" value="'+field(item,'description')+'" required><input name="account_type" value="'+field(item,'account_type')+'" required><input name="duration" value="'+field(item,'duration')+'" required><input name="mode" value="'+field(item,'mode')+'" required><input name="price" type="number" step="0.01" value="'+field(item,'price')+'" required><input name="stock" type="number" value="'+field(item,'stock')+'" required><input name="image" type="file" accept="image/png,image/jpeg,image/webp"><button>Guardar cambios</button></form></details>'
+        remove = '<form method="post" action="/admin/products/delete/'+product_id+'"><button class="danger">Eliminar</button></form>'
+        return '<tr><td>'+field(item,'title')+'</td><td>'+field(item,'category')+'</td><td>@app.get('/admin/logout')
+def admin_logout():
+    session.clear(); return redirect('/admin')
 
-@app.post('/admin/products')
-def create_product():
-    if not logged_in(): return redirect('/admin')
+@app.get('/api/health')
+def health():
+    configured = bool(os.getenv('SUPABASE_URL') and (os.getenv('SUPABASE_PUBLISHABLE_KEY') or os.getenv('SUPABASE_ANON_KEY')))
+    result = supabase('GET','/rest/v1/site_settings?select=id&limit=1') if configured else None
+    return jsonify({'status':'ok','supabase':result is not None}),200
+
+def keepalive_loop():
+    url = os.getenv('PUBLIC_APP_URL', 'https://streaming-factory.onrender.com').rstrip('/') + '/api/health'
+    while True:
+        try:
+            requests.get(url, timeout=45)
+        except requests.RequestException:
+            pass
+        time.sleep(840)
+
+if os.getenv('ENABLE_KEEPALIVE', 'true').lower() == 'true':
+    threading.Thread(target=keepalive_loop, daemon=True).start()
+
+if __name__ == '__main__': app.run(host='0.0.0.0',port=int(os.getenv('PORT',5000)))
++field(item,'price')+'</td><td>'+field(item,'stock')+'</td><td>'+edit+remove+'</td></tr>'
+    table = ''.join(row(item) for item in rows)
+    notice = session.pop('notice', '')
+    page = ADMIN.replace('PRODUCT_ROWS',table or '<tr><td colspan="5">No hay productos en Supabase.</td></tr>')
+    return page.replace('<h1>Gestión de productos</h1>', '<h1>Gestión de productos</h1><p>'+html.escape(notice)+'</p>')
+
+def product_data():
     data = {k:request.form.get(k,'') for k in ['title','description','category','account_type','duration','mode']}
     data.update({'price':float(request.form.get('price',0)),'stock':int(request.form.get('stock',0))})
     image_url = cloudinary_upload(request.files.get('image'))
     if image_url: data['image_url'] = image_url
-    supabase('POST','/rest/v1/products',data,admin=True)
+    return data
+
+@app.post('/admin/products')
+def create_product():
+    if not logged_in(): return redirect('/admin')
+    saved = supabase('POST','/rest/v1/products',product_data(),admin=True)
+    session['notice'] = 'Producto guardado correctamente.' if saved is not None else 'No se pudo guardar. Revisa las claves de Supabase y Cloudinary.'
+    return redirect('/admin/dashboard')
+
+@app.post('/admin/products/edit/<product_id>')
+def edit_product(product_id):
+    if not logged_in(): return redirect('/admin')
+    saved = supabase('PATCH','/rest/v1/products?id=eq.'+product_id,product_data(),admin=True)
+    session['notice'] = 'Producto actualizado.' if saved is not None else 'No se pudo actualizar el producto.'
     return redirect('/admin/dashboard')
 
 @app.post('/admin/products/delete/<product_id>')
 def delete_product(product_id):
     if not logged_in(): return redirect('/admin')
-    supabase('DELETE','/rest/v1/products?id=eq.'+product_id,admin=True)
+    removed = supabase('DELETE','/rest/v1/products?id=eq.'+product_id,admin=True)
+    session['notice'] = 'Producto eliminado.' if removed is not None else 'No se pudo eliminar el producto.'
     return redirect('/admin/dashboard')
 
 @app.get('/admin/logout')
