@@ -4,6 +4,7 @@ import json
 import os
 import secrets
 import time
+import threading
 import requests
 from flask import Flask, jsonify, request, redirect, session, url_for
 
@@ -104,5 +105,17 @@ def health():
     configured = bool(os.getenv('SUPABASE_URL') and (os.getenv('SUPABASE_PUBLISHABLE_KEY') or os.getenv('SUPABASE_ANON_KEY')))
     result = supabase('GET','/rest/v1/site_settings?select=id&limit=1') if configured else None
     return jsonify({'status':'ok','supabase':result is not None}),200
+
+def keepalive_loop():
+    url = os.getenv('PUBLIC_APP_URL', 'https://streaming-factory.onrender.com').rstrip('/') + '/api/health'
+    while True:
+        try:
+            requests.get(url, timeout=45)
+        except requests.RequestException:
+            pass
+        time.sleep(840)
+
+if os.getenv('ENABLE_KEEPALIVE', 'true').lower() == 'true':
+    threading.Thread(target=keepalive_loop, daemon=True).start()
 
 if __name__ == '__main__': app.run(host='0.0.0.0',port=int(os.getenv('PORT',5000)))
